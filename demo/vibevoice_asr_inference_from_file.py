@@ -31,7 +31,9 @@ class VibeVoiceASRBatchInference:
         model_path: str, 
         device: str = "cuda", 
         dtype: torch.dtype = torch.bfloat16,
-        attn_implementation: str = "sdpa"
+        attn_implementation: str = "sdpa",
+        load_in_8bit: bool = False,
+        load_in_4bit: bool = False
     ):
         """
         Initialize the ASR batch inference pipeline.
@@ -41,6 +43,8 @@ class VibeVoiceASRBatchInference:
             device: Device to run inference on (cuda, mps, xpu, cpu, auto)
             dtype: Data type for model weights
             attn_implementation: Attention implementation to use ('flash_attention_2', 'sdpa', 'eager')
+            load_in_8bit: Load model in 8-bit quantization
+            load_in_4bit: Load model in 4-bit quantization
         """
         print(f"Loading VibeVoice ASR model from {model_path}")
         
@@ -52,15 +56,33 @@ class VibeVoiceASRBatchInference:
         
         # Load model with specified attention implementation
         print(f"Using attention implementation: {attn_implementation}")
+        
+        model_kwargs = {
+            "dtype": dtype,
+            "device_map": device if device == "auto" else None,
+            "attn_implementation": attn_implementation,
+            "trust_remote_code": True,
+        }
+        
+        if load_in_8bit:
+            print("Loading model in 8-bit quantization")
+            model_kwargs["load_in_8bit"] = True
+        elif load_in_4bit:
+            print("Loading model in 4-bit quantization")
+            model_kwargs["load_in_4bit"] = True
+            try:
+                import bitsandbytes
+            except ImportError:
+                print("Warning: bitsandbytes not found. Please install it with: pip install bitsandbytes")
+                print("Falling back to full precision...")
+                model_kwargs.pop("load_in_4bit")
+        
         self.model = VibeVoiceASRForConditionalGeneration.from_pretrained(
             model_path,
-            dtype=dtype,
-            device_map=device if device == "auto" else None,
-            attn_implementation=attn_implementation,
-            trust_remote_code=True
+            **model_kwargs
         )
         
-        if device != "auto":
+        if device != "auto" and not load_in_8bit and not load_in_4bit:
             self.model = self.model.to(device)
         
         self.device = device if device != "auto" else next(self.model.parameters()).device
@@ -457,8 +479,8 @@ def main():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=2,
-        help="Batch size for processing multiple files"
+        default=1,
+        help="Batch size for processing multiple files (use 1 for low memory)"
     )
     parser.add_argument(
         "--device", 
@@ -470,8 +492,18 @@ def main():
     parser.add_argument(
         "--max_new_tokens",
         type=int,
-        default=32768,
-        help="Maximum number of tokens to generate"
+        default=8192,
+        help="Maximum number of tokens to generate (reduce if out of memory)"
+    )
+    parser.add_argument(
+        "--load_in_8bit",
+        action="store_true",
+        help="Load model in 8-bit quantization to save memory"
+    )
+    parser.add_argument(
+        "--load_in_4bit",
+        action="store_true",
+        help="Load model in 4-bit quantization to save memory"
     )
     parser.add_argument(
         "--temperature",
@@ -577,7 +609,9 @@ def main():
         model_path=args.model_path,
         device=args.device,
         dtype=model_dtype,
-        attn_implementation=args.attn_implementation
+        attn_implementation=args.attn_implementation,
+        load_in_8bit=args.load_in_8bit,
+        load_in_4bit=args.load_in_4bit
     )
     
     # If temperature is 0, use greedy decoding (no sampling)
