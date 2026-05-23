@@ -59,7 +59,7 @@ class VibeVoiceASRBatchInference:
         
         model_kwargs = {
             "dtype": dtype,
-            "device_map": device if device == "auto" else None,
+            "device_map": "auto",  # 自动设备映射，优先使用 GPU
             "attn_implementation": attn_implementation,
             "trust_remote_code": True,
         }
@@ -82,10 +82,8 @@ class VibeVoiceASRBatchInference:
             **model_kwargs
         )
         
-        if device != "auto" and not load_in_8bit and not load_in_4bit:
-            self.model = self.model.to(device)
-        
-        self.device = device if device != "auto" else next(self.model.parameters()).device
+        # 不再手动移动模型到设备，因为 device_map="auto" 已经处理了
+        self.device = self.model.device
         self.dtype = dtype
         self.model.eval()
         
@@ -104,6 +102,7 @@ class VibeVoiceASRBatchInference:
             "max_new_tokens": max_new_tokens,
             "pad_token_id": self.processor.pad_id,
             "eos_token_id": self.processor.tokenizer.eos_token_id,
+            "use_cache": True,
         }
         
         # Beam search vs sampling
@@ -174,9 +173,12 @@ class VibeVoiceASRBatchInference:
             num_beams=num_beams,
         )
         
+        # 先保存 input_length
+        input_length = inputs['input_ids'].shape[1]
+        
         start_time = time.time()
         
-        with torch.no_grad():
+        with torch.no_grad(), torch.cuda.amp.autocast(enabled=True):
             output_ids = self.model.generate(
                 **inputs,
                 **generation_config
@@ -184,9 +186,13 @@ class VibeVoiceASRBatchInference:
         
         generation_time = time.time() - start_time
         
+        # 清理显存
+        del inputs
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        
         # Decode outputs for each sample in the batch
         results = []
-        input_length = inputs['input_ids'].shape[1]
         
         for i, audio_input in enumerate(audio_inputs):
             # Get generated tokens for this sample (excluding input tokens)
@@ -268,6 +274,10 @@ class VibeVoiceASRBatchInference:
                 num_beams=num_beams,
             )
             all_results.extend(batch_results)
+            
+            # 清理显存
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         
         return all_results
 
