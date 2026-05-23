@@ -250,20 +250,40 @@ class VibeVoiceASRBatchInference:
         return all_results
 
 
-def print_result(result: Dict[str, Any]):
-    """Pretty print a single transcription result."""
-    print(f"\nFile: {result['file']}")
-    print(f"Generation Time: {result['generation_time']:.2f}s")
-    print(f"\n--- Raw Output ---")
-    print(result['raw_text'][:500] + "..." if len(result['raw_text']) > 500 else result['raw_text'])
+def print_result(result: Dict[str, Any], output_file: Optional[str] = None):
+    """Pretty print a single transcription result and optionally save to file."""
+    output_lines = []
+    
+    output_lines.append(f"\nFile: {result['file']}")
+    output_lines.append(f"Generation Time: {result['generation_time']:.2f}s")
+    output_lines.append(f"\n--- Raw Output ---")
+    output_lines.append(result['raw_text'][:500] + "..." if len(result['raw_text']) > 500 else result['raw_text'])
     
     if result['segments']:
-        print(f"\n--- Structured Output ({len(result['segments'])} segments) ---")
+        output_lines.append(f"\n--- Structured Output ({len(result['segments'])} segments) ---")
         for seg in result['segments'][:50]:  # Show first 50 segments
-            print(f"[{seg.get('start_time', 'N/A')} - {seg.get('end_time', 'N/A')}] "
-                  f"Speaker {seg.get('speaker_id', 'N/A')}: {seg.get('text', '')}...")
+            output_lines.append(f"[{seg.get('start_time', 'N/A')} - {seg.get('end_time', 'N/A')}] "
+                               f"Speaker {seg.get('speaker_id', 'N/A')}: {seg.get('text', '')}...")
         if len(result['segments']) > 50:
-            print(f"  ... and {len(result['segments']) - 50} more segments")
+            output_lines.append(f"  ... and {len(result['segments']) - 50} more segments")
+    
+    # Print to console
+    for line in output_lines:
+        print(line)
+    
+    # Save to file if specified
+    if output_file:
+        with open(output_file, 'a', encoding='utf-8') as f:
+            for line in output_lines:
+                f.write(line + '\n')
+
+
+def save_results_to_json(all_results: List[Dict[str, Any]], output_file: str):
+    """Save all results to a JSON file."""
+    import json
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(all_results, f, ensure_ascii=False, indent=2)
+    print(f"\nResults saved to JSON file: {output_file}")
 
 
 def load_dataset_and_concatenate(
@@ -472,6 +492,18 @@ def main():
         help="Number of beams for beam search. Use 1 for greedy/sampling"
     )
     parser.add_argument(
+        "--output_file",
+        type=str,
+        default=None,
+        help="Path to save the output results (text format)"
+    )
+    parser.add_argument(
+        "--output_json",
+        type=str,
+        default=None,
+        help="Path to save the output results (JSON format)"
+    )
+    parser.add_argument(
         "--attn_implementation",
         type=str,
         default="auto",
@@ -573,8 +605,15 @@ def main():
     print("Results")
     print("="*80)
     for result in all_results:
-        print("\n" + "-"*60)
-        print_result(result)
+        print_result(result, output_file=args.output_file)
+    
+    # Save to JSON if specified
+    if args.output_json:
+        save_results_to_json(all_results, args.output_json)
+    
+    print("\n" + "="*80)
+    print("Done!")
+    print("="*80)
 
 
 if __name__ == "__main__":
