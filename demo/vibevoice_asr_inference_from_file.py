@@ -443,8 +443,8 @@ def main():
     parser.add_argument(
         "--device", 
         type=str, 
-        default="cuda" if torch.cuda.is_available() else ("xpu" if torch.backends.xpu.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu") ),
-        choices=["cuda", "cpu", "mps","xpu", "auto"],
+        default="cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"),
+        choices=["cuda", "cpu", "mps", "xpu", "auto"],
         help="Device to run inference on"
     )
     parser.add_argument(
