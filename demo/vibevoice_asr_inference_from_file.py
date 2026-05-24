@@ -255,7 +255,8 @@ def print_result(result: Dict[str, Any]):
     print(f"\nFile: {result['file']}")
     print(f"Generation Time: {result['generation_time']:.2f}s")
     print(f"\n--- Raw Output ---")
-    print(result['raw_text'][:500] + "..." if len(result['raw_text']) > 500 else result['raw_text'])
+    # 打印完整的 raw_text，不再限制长度
+    print(result['raw_text'])
     
     if result['segments']:
         print(f"\n--- Structured Output ({len(result['segments'])} segments) ---")
