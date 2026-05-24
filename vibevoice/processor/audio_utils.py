@@ -2,7 +2,7 @@ import os
 import threading
 
 import numpy as np
-from subprocess import run
+from subprocess import run, CalledProcessError
 from typing import List, Optional, Union, Dict, Any
 
 COMMON_AUDIO_EXTS = [
@@ -51,12 +51,21 @@ def load_audio_use_ffmpeg(file: str, resample: bool = False, target_sr: int = 24
             file
         ]
         
-        original_sr = int(run(cmd_probe, capture_output=True, check=True).stdout.decode().strip())
+        try:
+            probe_output = run(cmd_probe, capture_output=True, check=True).stdout.decode().strip()
+            if not probe_output:
+                # If ffprobe returns empty, use default or try to extract from ffmpeg output
+                original_sr = None
+            else:
+                original_sr = int(probe_output)
+        except (ValueError, CalledProcessError):
+            # If probing fails, proceed without original_sr
+            original_sr = None
     else:
         original_sr = None
 
     # Now load the audio
-    sr_to_use = target_sr if resample else original_sr
+    sr_to_use = target_sr if resample else (original_sr if original_sr else target_sr)
     
     cmd = [
         "ffmpeg",
