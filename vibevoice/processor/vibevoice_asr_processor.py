@@ -201,6 +201,7 @@ class VibeVoiceASRProcessor:
         add_generation_prompt: bool = True,
         use_streaming: bool = True,
         context_info: Optional[str] = None,
+        custom_prompt: Optional[str] = None,
         **kwargs
     ) -> BatchEncoding:
         """
@@ -250,6 +251,7 @@ class VibeVoiceASRProcessor:
                 add_generation_prompt=add_generation_prompt,
                 use_streaming=use_streaming,
                 context_info=context_info,
+                custom_prompt=custom_prompt,
             )
             all_encodings.append(encoding)
         
@@ -271,6 +273,7 @@ class VibeVoiceASRProcessor:
         add_generation_prompt: bool = True,
         use_streaming: bool = True,
         context_info: Optional[str] = None,
+        custom_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Process a single audio input.
@@ -358,10 +361,14 @@ class VibeVoiceASRProcessor:
         
         # User suffix with audio duration info
         show_keys = ['Start time', 'End time', 'Speaker ID', 'Content']
-        if context_info and context_info.strip():
-            user_suffix = f"This is a {audio_duration:.2f} seconds audio, with extra info: {context_info.strip()}\n\nPlease transcribe it with these keys: " + ", ".join(show_keys)
+        if custom_prompt and custom_prompt.strip():
+            # 使用自定义 prompt，支持 {duration} 占位符
+            user_suffix = custom_prompt.format(duration=f"{audio_duration:.2f}")
         else:
-            user_suffix = f"This is a {audio_duration:.2f} seconds audio, please transcribe it with these keys: " + ", ".join(show_keys)
+            if context_info and context_info.strip():
+                user_suffix = f"This is a {audio_duration:.2f} seconds audio, with extra info: {context_info.strip()}\n\nPlease transcribe it with these keys: " + ", ".join(show_keys)
+            else:
+                user_suffix = f"This is a {audio_duration:.2f} seconds audio, please transcribe it with these keys: " + ", ".join(show_keys)
         
         user_input_string = ''.join(
             [sp_start_token] + [sp_pad_token] * vae_tok_len + [sp_end_token]

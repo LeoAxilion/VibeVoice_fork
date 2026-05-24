@@ -105,6 +105,8 @@ class VibeVoiceASRBatchInference:
         top_p: float = 1.0,
         do_sample: bool = True,
         num_beams: int = 1,
+        context_info: Optional[str] = None,
+        custom_prompt: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Transcribe multiple audio files/arrays in a single batch.
@@ -131,7 +133,9 @@ class VibeVoiceASRBatchInference:
             sampling_rate=None,
             return_tensors="pt",
             padding=True,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            context_info=context_info,
+            custom_prompt=custom_prompt
         )
         
         # Move to device
@@ -214,6 +218,8 @@ class VibeVoiceASRBatchInference:
         top_p: float = 1.0,
         do_sample: bool = True,
         num_beams: int = 1,
+        context_info: Optional[str] = None,
+        custom_prompt: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Transcribe multiple audio files/arrays with automatic batching.
@@ -244,6 +250,8 @@ class VibeVoiceASRBatchInference:
                 top_p=top_p,
                 do_sample=do_sample,
                 num_beams=num_beams,
+                context_info=context_info,
+                custom_prompt=custom_prompt,
             )
             all_results.extend(batch_results)
         
@@ -495,6 +503,18 @@ def main():
         choices=["flash_attention_2", "sdpa", "eager", "auto"],
         help="Attention implementation to use. 'auto' will select the best available for your device (flash_attention_2 for CUDA, sdpa for MPS/CPU/XPU)"
     )
+    parser.add_argument(
+        "--context_info",
+        type=str,
+        default="",
+        help="Optional context information (hotwords, speaker names, etc.) to improve transcription"
+    )
+    parser.add_argument(
+        "--custom_prompt",
+        type=str,
+        default="",
+        help="Custom full prompt (overrides default prompt). Use {duration} for audio duration placeholder."
+    )
     
     args = parser.parse_args()
     
@@ -583,6 +603,8 @@ def main():
         top_p=args.top_p,
         do_sample=do_sample,
         num_beams=args.num_beams,
+        context_info=args.context_info if args.context_info else None,
+        custom_prompt=args.custom_prompt if args.custom_prompt else None,
     )
     
     # Print results
