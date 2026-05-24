@@ -259,11 +259,27 @@ def print_result(result: Dict[str, Any]):
     
     if result['segments']:
         print(f"\n--- Structured Output ({len(result['segments'])} segments) ---")
-        for seg in result['segments'][:50]:  # Show first 50 segments
+        # Show all segments instead of just first 50
+        for seg in result['segments']:
             print(f"[{seg.get('start_time', 'N/A')} - {seg.get('end_time', 'N/A')}] "
-                  f"Speaker {seg.get('speaker_id', 'N/A')}: {seg.get('text', '')}...")
-        if len(result['segments']) > 50:
-            print(f"  ... and {len(result['segments']) - 50} more segments")
+                  f"Speaker {seg.get('speaker_id', 'N/A')}: {seg.get('text', '')}")
+
+def save_result_to_file(result: Dict[str, Any], output_dir: str = "output"):
+    """Save full transcription result to JSON file."""
+    os.makedirs(output_dir, exist_ok=True)
+    # Generate safe filename
+    if isinstance(result['file'], str):
+        base_name = os.path.splitext(os.path.basename(result['file']))[0]
+    else:
+        base_name = f"transcription_{int(time.time())}"
+    
+    output_path = os.path.join(output_dir, f"{base_name}_transcription.json")
+    
+    # Save complete result
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+    
+    print(f"\n✅ Full result saved to: {output_path}")
 
 
 def load_dataset_and_concatenate(
@@ -575,6 +591,8 @@ def main():
     for result in all_results:
         print("\n" + "-"*60)
         print_result(result)
+        # Save complete result to file
+        save_result_to_file(result)
 
 
 if __name__ == "__main__":
